@@ -133,6 +133,7 @@ fi;
 # Configure wireless
 echo "Configuring WIFI"
 uci set wireless.default_radio0.ssid=$WIFI_SSID
+uci set wireless.default_radio0.encryption='psk2'
 uci set wireless.default_radio0.key=$WIFI_KEY
 uci set wireless.radio0.disabled='0'
 uci commit wireless
