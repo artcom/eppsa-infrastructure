@@ -1,0 +1,25 @@
+# This file is interpreted as shell script.
+# Put your custom iptables rules here, they will
+# be executed with each firewall (re-)start.
+
+# Internal uci firewall chains are flushed and recreated on reload, so
+# put custom rules into the root chains e.g. INPUT or FORWARD or into the
+# special user chains, e.g. input_wan_rule or postrouting_lan_rule.
+
+iptables -N internet -t mangle
+iptables -t mangle -A PREROUTING -j internet
+awk 'BEGIN { FS="\t"; } { system("iptables -t mangle -A internet -m mac --mac-source "$3" -j RETURN"); }' /var/lib/users
+iptables -t mangle -A internet -j MARK --set-mark 99
+
+iptables -t nat -A PREROUTING -m mark --mark 99 -p tcp --dport 80 -j DNAT --to-destination 192.168.1.1:8080
+
+iptables -t filter -A FORWARD -m mark --mark 99 -j DROP
+
+iptables -t filter -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -t filter -A INPUT -p udp --dport 53 -j ACCEPT
+iptables -t filter -A INPUT -m mark --mark 99 -j DROP
+
+echo "1" > /proc/sys/net/ipv4/ip_forward
+iptables -A FORWARD -i ppp0 -o eth0 -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -i eth0 -o ppp0 -j ACCEPT
+iptables -t nat -A POSTROUTING -o ppp0 -j MASQUERADE
