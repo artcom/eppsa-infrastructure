@@ -3,6 +3,7 @@ set -e
 
 NGINX_USER=${NGINX_USER:=""}
 NGINX_GROUP=${NGINX_GROUP:=""}
+HTML_ROOT=${HTML_ROOT:="/html"}
 FASTCGI_PORT=${FASTCGI_PORT:="1026"}
 
 # Install dependencies
@@ -15,6 +16,7 @@ if ! grep -q $NGINX_USER /etc/passwd; then
 fi
 
 mkdir -p /html
+mkdir -p $HTML_ROOT
 
 cat > /etc/nginx/nginx.conf << EOF
 user $NGINX_USER $NGINX_GROUP;
@@ -33,7 +35,7 @@ http {
         listen       8080;
         server_name  localhost;
 
-        root /html;
+        root $HTML_ROOT;
         index  index.php index.html index.htm;
 
         error_page   500 502 503 504  /50x.html;
