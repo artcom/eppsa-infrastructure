@@ -53,6 +53,7 @@ EOF
 
 # Configure fastcgi
 fpm_conf_file='/etc/php7-fpm.d/www.conf'
+fastcgi_init_file='/etc/init.d/php7-fastcgi'
 
 set_fpm_users() {
   if ! grep -q "^$2 = $NGINX_USER$"  $fpm_conf_file; then
@@ -71,3 +72,10 @@ set_fpm_users 'user' 'user'
 set_fpm_users 'group' 'group'
 set_fpm_users 'listen.owner' 'listen\.owner'
 set_fpm_users 'listen.group' 'listen\.group'
+
+if ! grep -q "config_get port \"\$section\" 'port' $FASTCGI_PORT" $fastcgi_init_file; then
+  echo "Setting FastCGI port to $FASTCGI_PORT."
+  sed -i "s/config_get port \"\$section\" 'port' \d*$/config_get port \"\$section\" 'port' $FASTCGI_PORT/" $fastcgi_init_file
+else
+  echo "FastCGI port was already set, skipping."
+fi
