@@ -13,11 +13,11 @@ USERS_FILE=${USERS_FILE:="/var/lib/users"}
 DIR=$(dirname "$0")
 
 # Install dependencies
-opkg update
-opkg install nginx php7 php7-cli php7-cgi php7-fpm php7-fastcgi conntrack shadow-useradd
+# opkg update
+# opkg install nginx php7 php7-cli php7-cgi php7-fpm php7-fastcgi conntrack shadow-useradd
 
 # Configure nginx
-echo "Configuring nginx user as $NGINX_USER:$NGINX_GROUP"
+echo "Configuring nginx user as $NGINX_USER and group as $NGINX_GROUP"
 
 if ! grep -q $NGINX_USER /etc/passwd; then
   useradd -s /bin/false $NGINX_USER
@@ -28,42 +28,23 @@ touch $USERS_FILE
 
 echo "Configuring /etc/nginx/nginx.conf"
 
-cat > /etc/nginx/nginx.conf << EOF
-user $NGINX_USER $NGINX_GROUP;
-worker_processes  1;
+mv $DIR/nginx.conf /etc/nginx/nginx.conf
 
-events {
-    worker_connections  1024;
-}
+if ! grep -q "user\s*$NGINX_USER;" /etc/nginx/nginx.conf; then
+  sed -i "s/^user\s*\w*;$/user              $NGINX_USER;/" /etc/nginx/nginx.conf
+fi
 
-http {
-    include       mime.types;
-    sendfile        on;
-    keepalive_timeout  65;
+if ! grep -q "listen\s*$LISTEN_PORT;" /etc/nginx/nginx.conf; then
+  sed -i "s/^\s*listen\s*\d*;$/        listen       $LISTEN_PORT;/" /etc/nginx/nginx.conf
+fi
 
-    server {
-        listen       $LISTEN_PORT;
-        server_name  localhost;
+if ! grep -q "root\s*$HTML_ROOT;" /etc/nginx/nginx.conf; then
+  sed -i "s/^\s*root.*;$/        root   $(echo $HTML_ROOT | sed -e 's/[\/]/\\&/g');/" /etc/nginx/nginx.conf
+fi
 
-        root $HTML_ROOT;
-        index  index.php index.html index.htm;
-
-        error_page   500 502 503 504  /50x.html;
-        location = /50x.html {
-            root   html;
-        }
-
-        rewrite ^/generate_204$ / last;
-
-        location ~ \.php$ {
-            fastcgi_pass   127.0.0.1:$FASTCGI_PORT;
-            fastcgi_index  index.php;
-            fastcgi_param  SCRIPT_FILENAME  \$request_filename;
-            include        fastcgi_params;
-        }
-    }
-}
-EOF
+if ! grep -q "fastcgi_pass\s*127\.0\.0\.1:$FASTCGI_PORT;" /etc/nginx/nginx.conf; then
+  sed -i "s/^\s*fastcgi_pass\s*\d*\.\d*\.\d*\.\d*:\d*;$/            fastcgi_pass   127.0.0.1:$FASTCGI_PORT;/" /etc/nginx/nginx.conf
+fi
 
 # Configure fastcgi
 fpm_conf_file='/etc/php7-fpm.d/www.conf'
