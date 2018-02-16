@@ -52,6 +52,8 @@ http {
             root   html;
         }
 
+        rewrite ^/generate_204$ / last;
+
         location ~ \.php$ {
             fastcgi_pass   127.0.0.1:$FASTCGI_PORT;
             fastcgi_index  index.php;
