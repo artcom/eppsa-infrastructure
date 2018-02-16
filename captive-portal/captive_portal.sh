@@ -30,20 +30,20 @@ echo "Configuring /etc/nginx/nginx.conf"
 
 mv $DIR/nginx.conf /etc/nginx/nginx.conf
 
-if ! grep -q "user\s*$NGINX_USER;" /etc/nginx/nginx.conf; then
-  sed -i "s/^user\s*\w*;$/user              $NGINX_USER;/" /etc/nginx/nginx.conf
+if ! grep -q "^\s*user\s\+$NGINX_USER;" /etc/nginx/nginx.conf; then
+  sed -i "s/^user\s\+\w\+;$/user              $NGINX_USER;/" /etc/nginx/nginx.conf
 fi
 
-if ! grep -q "listen\s*$LISTEN_PORT;" /etc/nginx/nginx.conf; then
-  sed -i "s/^\s*listen\s*\d*;$/        listen       $LISTEN_PORT;/" /etc/nginx/nginx.conf
+if ! grep -q "^\s*listen\s\+$LISTEN_PORT;" /etc/nginx/nginx.conf; then
+  sed -i "s/^\s*listen\s\+\d\{1,5\};$/        listen       $LISTEN_PORT;/" /etc/nginx/nginx.conf
 fi
 
-if ! grep -q "root\s*$HTML_ROOT;" /etc/nginx/nginx.conf; then
-  sed -i "s/^\s*root.*;$/        root   $(echo $HTML_ROOT | sed -e 's/[\/]/\\&/g');/" /etc/nginx/nginx.conf
+if ! grep -q "^\s*root\s\+$HTML_ROOT;" /etc/nginx/nginx.conf; then
+  sed -i "s/^\s*root\s\+.*;$/        root   $(echo $HTML_ROOT | sed -e 's/[\/]/\\&/g');/" /etc/nginx/nginx.conf
 fi
 
-if ! grep -q "fastcgi_pass\s*127\.0\.0\.1:$FASTCGI_PORT;" /etc/nginx/nginx.conf; then
-  sed -i "s/^\s*fastcgi_pass\s*\d*\.\d*\.\d*\.\d*:\d*;$/            fastcgi_pass   127.0.0.1:$FASTCGI_PORT;/" /etc/nginx/nginx.conf
+if ! grep -q "fastcgi_pass\s\+127\.0\.0\.1:$FASTCGI_PORT;" /etc/nginx/nginx.conf; then
+  sed -i "s/^\s*fastcgi_pass\s\+\d\{1,3\}\.\d\{1,3\}\.\d\{1,3\}\.\d\{1,3\}:\d\{1,5\};$/            fastcgi_pass   127.0.0.1:$FASTCGI_PORT;/" /etc/nginx/nginx.conf
 fi
 
 # Configure fastcgi
