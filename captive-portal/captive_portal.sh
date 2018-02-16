@@ -10,10 +10,11 @@ ROUTER_IP=${ROUTER_IP:="192.168.1.1"}
 LISTEN_PORT=${LISTEN_PORT:="8080"}
 SITE_NAME=${SITE_NAME:=""}
 USERS_FILE=${USERS_FILE:="/var/lib/users"}
+DIR=$(dirname "$0")
 
 # Install dependencies
-# opkg update
-# opkg install nginx php7 php7-cli php7-cgi php7-fpm php7-fastcgi conntrack shadow-useradd
+opkg update
+opkg install nginx php7 php7-cli php7-cgi php7-fpm php7-fastcgi conntrack shadow-useradd
 
 # Configure nginx
 echo "Configuring nginx user as $NGINX_USER:$NGINX_GROUP"
@@ -98,15 +99,15 @@ if ! grep -q "^doc_root = \"$HTML_ROOT\"$" /etc/php.ini; then
   sed -i "s/^doc_root = .*$/doc_root = \"$(echo $HTML_ROOT | sed -e 's/[\/]/\\&/g')\"/" /etc/php.ini
 fi
 
-cp index.php $HTML_ROOT/
+echo "Configuring $HTML_ROOT/index.php"
+
+mv $DIR/index.php $HTML_ROOT/
 
 configure_site() {
   if ! grep -q "^\$$1 = \"$2\";" $HTML_ROOT/index.php; then
     sed -i "s/^\$$1 = \".*\";$/\$$1 = \"$(echo $2 | sed -e 's/[.\/]/\\&/g')\";/" $HTML_ROOT/index.php
   fi
 }
-
-echo "Configuring $HTML_ROOT/index.php"
 
 configure_site "game_site" "$GAME_DOMAIN"
 configure_site "site_name" "$SITE_NAME"
@@ -116,7 +117,7 @@ chown -R $NGINX_USER:$NGINX_GROUP /html
 # Configure firewall rules
 echo "Configuring /etc/firewall.user"
 
-cp firewall.user /etc/firewall.user
+mv $DIR/firewall.user /etc/firewall.user
 
 if ! grep -q "^awk 'BEGIN { FS="\\t"; } { system(\"iptables -t mangle -A internet -m mac --mac-source \"\$3\" -j RETURN\"); }' $(echo $USERS_FILE | sed -e 's/[\/]/\\&/g')$" /etc/firewall.user; then
   sed -i "s/^awk 'BEGIN { FS="\\t"; } { system(\"iptables -t mangle -A internet -m mac --mac-source \"\$3\" -j RETURN\"); }'.*$/^awk 'BEGIN { FS="\\t"; } { system(\"iptables -t mangle -A internet -m mac --mac-source \"\$3\" -j RETURN\"); }' $(echo $USERS_FILE | sed -e 's/[\/]/\\&/g')$/" /etc/firewall.user
@@ -129,16 +130,8 @@ fi
 # Configure track removal
 echo "Configuring /usr/bin/rmtrack"
 
-cat > /usr/bin/rmtrack << EOF
-/usr/sbin/conntrack -L \\
-    |grep \$1 \\
-    |grep ESTAB \\
-    |grep 'dport=80' \\
-    |awk \\
-        "{ system(\"conntrack -D --orig-src \$1 --orig-dst \" \\
-            substr(\$6,5) \" -p tcp --orig-port-src \" substr(\$7,7) \" \\
-            --orig-port-dst 80\"); }"
-EOF
+mv $DIR/rmtrack /usr/bin/
+chmod 755 /usr/bin/rmtrack
 
 # Start captive portal
 echo "Starting captive portal"
