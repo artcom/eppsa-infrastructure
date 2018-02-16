@@ -13,8 +13,8 @@ USERS_FILE=${USERS_FILE:="/var/lib/users"}
 DIR=$(dirname "$0")
 
 # Install dependencies
-# opkg update
-# opkg install nginx php7 php7-cli php7-cgi php7-fpm php7-fastcgi conntrack shadow-useradd
+opkg update
+opkg install nginx php7 php7-cli php7-cgi php7-fpm php7-fastcgi conntrack shadow-useradd
 
 # Configure nginx
 echo "Configuring nginx user as $NGINX_USER and group as $NGINX_GROUP"
