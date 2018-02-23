@@ -25,7 +25,6 @@ ssh root@192.168.1.1 /root/eppsa-infrastructure/configure_router.sh
 - Apply configuration
 
 ```bash
-ssh root@192.168.1.1 cd eppsa-infrastructure/captive_portal
 ssh root@192.168.1.1 chmod +x /root/eppsa-infrastructure/captive_portal/captive_portal.sh
 ssh root@192.168.1.1 /root/eppsa-infrastructure/captive-portal/captive_portal.sh
 ```
