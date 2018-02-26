@@ -119,6 +119,48 @@ else
   echo "Firewall rule for denying access to local network already set, skipping."
 fi;
 
+# Deny ping to local network on WAN
+deny_ping=false
+
+list_ping_rules() {
+  local rule=$1
+  if [ "$(uci get firewall.$rule.name)" = "Deny-ping-to-local" ]; then
+    if [ "$(uci get firewall.$rule.dest_ip)" = "$LOCAL_NETWORK" ]; then
+      deny_ping=true
+    else
+      echo "Found Deny-ping-to-local firewall rule for $(uci get firewall.$rule.dest_ip) network."
+      echo "Setting firewall rule for denying ping to $LOCAL_NETWORK local network."
+      uci set firewall.$rule.name='Deny-ping-to-local'
+      uci set firewall.$rule.src='lan'
+      uci set firewall.$rule.dest='wan'
+      uci set firewall.$rule.proto='icmp'
+      uci set firewall.$rule.family='ipv4'
+      uci set firewall.$rule.dest_ip=$LOCAL_NETWORK
+      uci set firewall.$rule.target='REJECT'
+      uci commit firewall
+      deny_ping=true
+    fi;
+  fi;
+}
+
+config_load firewall
+config_foreach list_ping_rules rule
+
+if [ $deny_ping = false ]; then
+  echo "Setting firewall rule for denying ping to $LOCAL_NETWORK local network."
+  uci add firewall rule
+  uci set firewall.@rule[-1].name='Deny-ping-to-local'
+  uci set firewall.@rule[-1].src='lan'
+  uci set firewall.@rule[-1].dest='wan'
+  uci set firewall.@rule[-1].proto='icmp'
+  uci set firewall.@rule[-1].family='ipv4'
+  uci set firewall.@rule[-1].dest_ip=$LOCAL_NETWORK
+  uci set firewall.@rule[-1].target='REJECT'
+  uci commit firewall
+else
+  echo "Firewall rule for denying ping to local network already set, skipping."
+fi;
+
 # Add game domain DNS entry
 if [ $game_domain = false ]; then
   echo "Setting DNS entry for $GAME_DOMAIN on $GAME_SERVER_IP."
