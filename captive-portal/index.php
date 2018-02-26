@@ -1,6 +1,6 @@
 <?php
-$game_site = "***REMOVED***";
-$site_name = "EPPSA ***REMOVED*** Game";
+$game_site = "dev.eppsa.de";
+$site_name = "EPPSA KSM Game";
 
 // The following file is used to keep track of users
 $users = "/var/lib/users";
