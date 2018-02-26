@@ -79,6 +79,17 @@ else
   echo "Lease for $GAME_SERVER_NAME already set, skipping."
 fi;
 
+# Add game domain DNS entry
+if [ $game_domain = false ]; then
+  echo "Setting DNS entry for $GAME_DOMAIN on $GAME_SERVER_IP."
+  uci add dhcp domain
+  uci set dhcp.@domain[-1].name=$GAME_DOMAIN
+  uci set dhcp.@domain[-1].ip=$GAME_SERVER_IP
+  uci commit dhcp
+else
+  echo "DNS entry for $GAME_DOMAIN already set, skipping."
+fi;
+
 # Deny access to local network on WAN
 deny_local=false
 
@@ -159,17 +170,6 @@ if [ $deny_ping = false ]; then
   uci commit firewall
 else
   echo "Firewall rule for denying ping to local network already set, skipping."
-fi;
-
-# Add game domain DNS entry
-if [ $game_domain = false ]; then
-  echo "Setting DNS entry for $GAME_DOMAIN on $GAME_SERVER_IP."
-  uci add dhcp domain
-  uci set dhcp.@domain[-1].name=$GAME_DOMAIN
-  uci set dhcp.@domain[-1].ip=$GAME_SERVER_IP
-  uci commit dhcp
-else
-  echo "DNS entry for game domain already set, skipping."
 fi;
 
 # Configure wireless
