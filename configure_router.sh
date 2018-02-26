@@ -1,14 +1,16 @@
 #!/bin/ash
 set -e
 
-GAME_SERVER_NAME=${GAME_SERVER_NAME:=""}
-GAME_SERVER_IP=${GAME_SERVER_IP:=""}
-GAME_SERVER_MAC=${GAME_SERVER_MAC:=""}
-LOCAL_NETWORK=${LOCAL_NETWORK:=""}
-GAME_DOMAIN=${GAME_DOMAIN:=""}
-WIFI_SSID=${WIFI_SSID:=""}
-WIFI_KEY=${WIFI_KEY:=''}
-SSH_PUBKEY=${SSH_PUBKEY:=''}
+GAME_SERVER_NAME=${GAME_SERVER_NAME:="***REMOVED***"}
+GAME_SERVER_IP=${GAME_SERVER_IP:="***REMOVED***"}
+GAME_SERVER_MAC=${GAME_SERVER_MAC:="***REMOVED***"}
+LOCAL_NETWORK=${LOCAL_NETWORK:="***REMOVED***"}
+GAME_DOMAIN=${GAME_DOMAIN:="***REMOVED***"}
+GAME_DOMAIN_SHORT=${GAME_DOMAIN_SHORT:="***REMOVED***"}
+WIFI_SSID=${WIFI_SSID:="***REMOVED***"}
+WIFI_KEY=${WIFI_KEY:='***REMOVED***'}
+SSH_PUBKEY=${SSH_PUBKEY:='***REMOVED***'}
+
 
 # Import uci helper functions
 . /lib/functions.sh
@@ -26,8 +28,10 @@ uci set dropbear.@dropbear[0].RootPasswordAuth='off'
 uci commit dropbear
 
 # Check DHCP configuration
+config_load dhcp
+
+# Set static DHCP lease for game server
 lease_set=false
-game_domain=false
 
 list_hosts() {
   local host=$1
@@ -46,27 +50,8 @@ list_hosts() {
   fi;
 }
 
-list_domains() {
-  local domain=$1
-  if [ "$(uci get dhcp.$domain.name)" = "$GAME_DOMAIN" ]; then
-    if [ "$(uci get dhcp.$domain.ip)" = "$GAME_SERVER_IP" ]; then
-      game_domain=true
-    else
-      echo "Found DNS entry for $GAME_DOMAIN on $(uci get dhcp.$domain.ip)."
-      echo "Setting DNS entry for $GAME_DOMAIN on $GAME_SERVER_IP."
-      uci set dhcp.$domain.name=$GAME_DOMAIN
-      uci set dhcp.$domain.ip=$GAME_SERVER_IP
-      uci commit dhcp
-      game_domain=true
-    fi;
-  fi;
-}
-
-config_load dhcp
 config_foreach list_hosts host
-config_foreach list_domains domain
 
-# Set static DHCP lease for game server
 if [ $lease_set = false ]; then
   echo "Setting static lease for $GAME_SERVER_NAME to $GAME_SERVER_IP."
   uci add dhcp host
@@ -80,15 +65,38 @@ else
 fi;
 
 # Add game domain DNS entry
-if [ $game_domain = false ]; then
-  echo "Setting DNS entry for $GAME_DOMAIN on $GAME_SERVER_IP."
-  uci add dhcp domain
-  uci set dhcp.@domain[-1].name=$GAME_DOMAIN
-  uci set dhcp.@domain[-1].ip=$GAME_SERVER_IP
-  uci commit dhcp
-else
-  echo "DNS entry for $GAME_DOMAIN already set, skipping."
-fi;
+list_domains() {
+  local domain=$1
+  if [ "$(uci get dhcp.$domain.name)" = "$2" ]; then
+    if [ "$(uci get dhcp.$domain.ip)" = "$GAME_SERVER_IP" ]; then
+      game_domain=true
+    else
+      echo "Found DNS entry for $2 on $(uci get dhcp.$domain.ip)."
+      echo "Setting DNS entry for $2 on $GAME_SERVER_IP."
+      uci set dhcp.$domain.name=$2
+      uci set dhcp.$domain.ip=$GAME_SERVER_IP
+      uci commit dhcp
+      game_domain=true
+    fi;
+  fi;
+}
+
+set_domain() {
+  game_domain=false
+  config_foreach list_domains domain $1
+  if [ $game_domain = false ]; then
+    echo "Setting DNS entry for $1 on $GAME_SERVER_IP."
+    uci add dhcp domain
+    uci set dhcp.@domain[-1].name=$1
+    uci set dhcp.@domain[-1].ip=$GAME_SERVER_IP
+    uci commit dhcp
+  else
+    echo "DNS entry for $1 already set, skipping."
+  fi;
+}
+
+set_domain $GAME_DOMAIN
+set_domain $GAME_DOMAIN_SHORT
 
 # Deny access to local network on WAN
 deny_local=false
