@@ -10,6 +10,8 @@ GAME_DOMAIN_SHORT=${GAME_DOMAIN_SHORT:=""}
 WIFI_SSID=${WIFI_SSID:=""}
 WIFI_KEY=${WIFI_KEY:=''}
 SSH_PUBKEY=${SSH_PUBKEY:=''}
+ROUTER_NETWORK=${ROUTER_NETWORK:=""}
+ROUTER_IP=${ROUTER_IP:=""}
 
 # Import uci helper functions
 . /lib/functions.sh
@@ -100,19 +102,29 @@ set_domain $GAME_DOMAIN_SHORT
 # Deny access to local network on WAN
 list_rules() {
   local rule=$1
-  if [ "$(uci get firewall.$rule.name)" = "Deny-to-local" ]; then
-    if [ "$(uci get firewall.$rule.dest_ip)" = "$LOCAL_NETWORK" ]; then
+  local name=$2
+  local dest_ip=$3
+  local protocol=$4
+  local policy=$5
+  local src=$6
+  local dest=$7
+  local dest_port=$8
+  if [ "$(uci get firewall.$rule.name)" = $name ]; then
+    if [ "$(uci get firewall.$rule.dest_ip)" = "$dest_ip" ]; then
       firewall_rule_set=true
     else
-      echo "Found $2 firewall rule for $(uci get firewall.$rule.dest_ip) network."
-      echo "Setting firewall rule $2 for $LOCAL_NETWORK network."
-      uci set firewall.$rule.name=$2
-      uci set firewall.$rule.src='lan'
-      uci set firewall.$rule.dest='wan'
-      uci set firewall.$rule.proto=$3
+      echo "Found $name firewall rule for $(uci get firewall.$rule.dest_ip)."
+      echo "Setting firewall rule $name for $dest_ip."
+      uci set firewall.$rule.name=$name
+      uci set firewall.$rule.src=$src
+      uci set firewall.$rule.dest=$dest
+      uci set firewall.$rule.proto=$protocol
       uci set firewall.$rule.family='ipv4'
-      uci set firewall.$rule.dest_ip=$LOCAL_NETWORK
-      uci set firewall.$rule.target='REJECT'
+      uci set firewall.$rule.dest_ip=$dest_ip
+      uci set firewall.$rule.target=$policy
+      if [ $dest_port != "" ];then
+        uci set firewall.$rule.dest_port=$dest_port
+      fi;
       uci commit firewall
       firewall_rule_set=true
     fi;
@@ -121,26 +133,41 @@ list_rules() {
 
 set_rule() {
   firewall_rule_set=false
-  config_foreach list_rules rule $1 $2
+  local name=$1
+  local dest_ip=$2
+  local protocol=$3
+  local policy=$4
+  local src=$5
+  local dest=$6
+  local dest_port=$7
+  config_foreach list_rules rule $name $dest_ip $protocol $policy $src $dest $dest_port
   if [ $firewall_rule_set = false ]; then
-    echo "Setting firewall rule $1 for $LOCAL_NETWORK network."
+    echo "Setting firewall rule $name for $dest_ip."
     uci add firewall rule
-    uci set firewall.@rule[-1].name=$1
-    uci set firewall.@rule[-1].src='lan'
-    uci set firewall.@rule[-1].dest='wan'
-    uci set firewall.@rule[-1].proto=$2
+    uci set firewall.@rule[-1].name=$name
+    uci set firewall.@rule[-1].src=$src
+    uci set firewall.@rule[-1].dest=$dest
+    uci set firewall.@rule[-1].proto=$protocol
     uci set firewall.@rule[-1].family='ipv4'
-    uci set firewall.@rule[-1].dest_ip=$LOCAL_NETWORK
-    uci set firewall.@rule[-1].target='REJECT'
+    uci set firewall.@rule[-1].dest_ip=$dest_ip
+    uci set firewall.@rule[-1].target=$policy
+    if [ $dest_port != "" ];then
+      uci set firewall.@rule[-1].dest_port=$dest_port
+    fi;
     uci commit firewall
   else
-    echo "Firewall rule $1 already set, skipping."
+    echo "Firewall rule $name already set, skipping."
   fi;
 }
 
 config_load firewall
-set_rule "Deny-to-local" "tcpudp"
-set_rule "Deny-ping-to-local" "icmp"
+set_rule "Deny-to-gw-local" $LOCAL_NETWORK "tcpudp" "REJECT" "lan" "wan"
+set_rule "Deny-ping-to-gw-local" $LOCAL_NETWORK "icmp" "REJECT" "lan" "wan"
+set_rule "Allow-to-router" $ROUTER_IP "tcpudp" "ACCEPT" "lan" "lan"
+set_rule "Allow-SSH-game-server" $GAME_SERVER_IP "tcp" "ACCEPT" "lan" "lan" "22"
+set_rule "Allow-HTTP-game-server" $GAME_SERVER_IP "tcp" "ACCEPT" "lan" "lan" "80"
+set_rule "Allow-HTTPS-game-server" $GAME_SERVER_IP "tcp" "ACCEPT" "lan" "lan" "443"
+set_rule "Deny-to-local" $ROUTER_NETWORK "tcpudp" "REJECT" "lan" "lan"
 
 # Configure wireless
 echo "Configuring WIFI"
