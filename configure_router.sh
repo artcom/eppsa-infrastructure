@@ -66,31 +66,10 @@ else
 fi;
 
 # Add game domain DNS entry
-list_domains() {
-  local domain=$1
-  if [ "$(uci get dhcp.$domain.name)" = "$2" ]; then
-    if [ "$(uci get dhcp.$domain.ip)" = "$GAME_SERVER_IP" ]; then
-      game_domain=true
-    else
-      echo "Found DNS entry for $2 on $(uci get dhcp.$domain.ip)."
-      echo "Setting DNS entry for $2 on $GAME_SERVER_IP."
-      uci set dhcp.$domain.name=$2
-      uci set dhcp.$domain.ip=$GAME_SERVER_IP
-      uci commit dhcp
-      game_domain=true
-    fi;
-  fi;
-}
-
 set_domain() {
-  game_domain=false
-  config_foreach list_domains domain $1
-  if [ $game_domain = false ]; then
+  if ! grep -q "^address=/$(echo $1 | sed -e 's/[\.]/\\&/g')/$(echo $GAME_SERVER_IP | sed -e 's/[\.]/\\&/g')$" /etc/dnsmasq.conf; then
     echo "Setting DNS entry for $1 on $GAME_SERVER_IP."
-    uci add dhcp domain
-    uci set dhcp.@domain[-1].name=$1
-    uci set dhcp.@domain[-1].ip=$GAME_SERVER_IP
-    uci commit dhcp
+    echo "address=/$1/$GAME_SERVER_IP" >> /etc/dnsmasq.conf
   else
     echo "DNS entry for $1 already set, skipping."
   fi;
