@@ -12,6 +12,8 @@ WIFI_KEY=${WIFI_KEY:=''}
 SSH_PUBKEY=${SSH_PUBKEY:=''}
 ROUTER_NETWORK=${ROUTER_NETWORK:=""}
 ROUTER_IP=${ROUTER_IP:=""}
+GAME_SERVER_SSH_PORT=${GAME_SERVER_SSH_PORT:=""}
+ROUTER_SSH_FORWARD_PORT=${ROUTER_SSH_FORWARD_PORT:=""}
 
 # Import uci helper functions
 . /lib/functions.sh
@@ -147,6 +149,59 @@ set_rule "Allow-SSH-game-server" $GAME_SERVER_IP "tcp" "ACCEPT" "lan" "lan" "22"
 set_rule "Allow-HTTP-game-server" $GAME_SERVER_IP "tcp" "ACCEPT" "lan" "lan" "80"
 set_rule "Allow-HTTPS-game-server" $GAME_SERVER_IP "tcp" "ACCEPT" "lan" "lan" "443"
 set_rule "Deny-to-local" $ROUTER_NETWORK "tcpudp" "REJECT" "lan" "lan"
+
+# Forward SSH to game server
+list_redirects() {
+  local redirect=$1
+  local name=$2
+  local dest_ip=$3
+  local src_dport=$4
+  local dest_port=$5
+  if [ "$(uci get firewall.$redirect.name)" = $name ]; then
+    if [ "$(uci get firewall.$redirect.dest_ip)" = "$dest_ip" ]; then
+      firewall_redirect_set=true
+    else
+      echo "Found $name port forwarding for $(uci get firewall.$redirect.dest_ip)."
+      echo "Setting port forwarding $name for $dest_ip."
+      uci set firewall.$redirect.name=$name
+      uci set firewall.$redirect.target='DNAT'
+      uci set firewall.$redirect.src='wan'
+      uci set firewall.$redirect.dest='lan'
+      uci set firewall.$redirect.proto='tcp'
+      uci set firewall.$redirect.src_dport=$src_dport
+      uci set firewall.$redirect.dest_ip=$dest_ip
+      uci set firewall.$redirect.dest_port=$dest_port
+      uci commit firewall
+      firewall_redirect_set=true
+    fi;
+  fi;
+}
+
+set_redirect() {
+  firewall_redirect_set=false
+  local name=$1
+  local dest_ip=$2
+  local src_dport=$3
+  local dest_port=$4
+  config_foreach list_redirects redirect $name $dest_ip $src_dport $dest_port
+  if [ $firewall_redirect_set = false ]; then
+    echo "Setting port forwarding $name for $dest_ip."
+    uci add firewall redirect
+    uci set firewall.@redirect[-1].name=$name
+    uci set firewall.@redirect[-1].target='DNAT'
+    uci set firewall.@redirect[-1].src='wan'
+    uci set firewall.@redirect[-1].dest='lan'
+    uci set firewall.@redirect[-1].proto='tcp'
+    uci set firewall.@redirect[-1].src_dport=$src_dport
+    uci set firewall.@redirect[-1].dest_ip=$dest_ip
+    uci set firewall.@redirect[-1].dest_port=$dest_port
+    uci commit firewall
+  else
+    echo "Port forwarding $name already set, skipping."
+  fi;
+}
+
+set_redirect "Forward-SSH" $GAME_SERVER_IP $ROUTER_SSH_FORWARD_PORT $GAME_SERVER_SSH_PORT
 
 # Configure wireless
 echo "Configuring WIFI"
