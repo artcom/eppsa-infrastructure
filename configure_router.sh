@@ -14,6 +14,9 @@ ROUTER_NETWORK=${ROUTER_NETWORK:=""}
 ROUTER_IP=${ROUTER_IP:=""}
 GAME_SERVER_SSH_PORT=${GAME_SERVER_SSH_PORT:=""}
 ROUTER_SSH_FORWARD_PORT=${ROUTER_SSH_FORWARD_PORT:=""}
+SLAVE_AP_NAME=${SLAVE_AP_NAME:=""}
+SLAVE_AP_MAC=${SLAVE_AP_MAC:=""}
+SLAVE_AP_IP=${SLAVE_AP_IP:=""}
 
 # Import uci helper functions
 . /lib/functions.sh
@@ -33,39 +36,49 @@ uci commit dropbear
 # Check DHCP configuration
 config_load dhcp
 
-# Set static DHCP lease for game server
-lease_set=false
-
+# Set static DHCP lease for game server and slave ap
 list_hosts() {
   local host=$1
-  if [ "$(uci get dhcp.$host.mac)" = "$GAME_SERVER_MAC" ]; then
-    if [ "$(uci get dhcp.$host.name)" = "$GAME_SERVER_NAME" ] \
-    && [ "$(uci get dhcp.$host.ip)" = "$GAME_SERVER_IP" ]; then
+  local name=$2
+  local mac=$3
+  local ip=$4
+  if [ "$(uci get dhcp.$host.mac)" = "$mac" ]; then
+    if [ "$(uci get dhcp.$host.name)" = "$name" ] \
+    && [ "$(uci get dhcp.$host.ip)" = "$ip" ]; then
       lease_set=true
     else
-      echo "Found static lease for $GAME_SERVER_NAME with MAC: $(uci get dhcp.$host.mac) and IP: $(uci get dhcp.$host.ip)."
-      echo "Setting static lease for $GAME_SERVER_NAME with MAC: $GAME_SERVER_MAC and IP: $GAME_SERVER_IP"
-      uci set dhcp.$host.name=$GAME_SERVER_NAME
-      uci set dhcp.$host.ip=$GAME_SERVER_IP
+      echo "Found static lease for $name with MAC: $(uci get dhcp.$host.mac) and IP: $(uci get dhcp.$host.ip)."
+      echo "Setting static lease for $name with MAC: $mac and IP: $ip"
+      uci set dhcp.$host.name=$name
+      uci set dhcp.$host.ip=$ip
       uci commit dhcp
       lease_set=true
     fi;
   fi;
 }
 
-config_foreach list_hosts host
+set_lease() {
+  lease_set=false
+  local name=$1
+  local mac=$2
+  local ip=$3
+  config_foreach list_hosts host $name $mac $ip
 
-if [ $lease_set = false ]; then
-  echo "Setting static lease for $GAME_SERVER_NAME to $GAME_SERVER_IP."
-  uci add dhcp host
-  uci set dhcp.@host[-1].name=$GAME_SERVER_NAME
-  uci set dhcp.@host[-1].dns='1'
-  uci set dhcp.@host[-1].mac=$GAME_SERVER_MAC
-  uci set dhcp.@host[-1].ip=$GAME_SERVER_IP
-  uci commit dhcp
-else
-  echo "Lease for $GAME_SERVER_NAME already set, skipping."
-fi;
+  if [ $lease_set = false ]; then
+    echo "Setting static lease for $name to $ip."
+    uci add dhcp host
+    uci set dhcp.@host[-1].name=$name
+    uci set dhcp.@host[-1].dns='1'
+    uci set dhcp.@host[-1].mac=$mac
+    uci set dhcp.@host[-1].ip=$ip
+    uci commit dhcp
+  else
+    echo "Lease for $name already set, skipping."
+  fi;
+}
+
+set_lease $GAME_SERVER_NAME $GAME_SERVER_MAC $GAME_SERVER_IP
+set_lease $SLAVE_AP_NAME $SLAVE_AP_MAC $SLAVE_AP_IP
 
 # Add game domain DNS entry
 set_domain() {
